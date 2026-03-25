@@ -1,0 +1,29 @@
+name: GHActionsMonitor
+options:
+  deploymentTarget:
+    macOS: "14.0"
+  bundleIdPrefix: com.mvovchak
+  createIntermediateGroups: true
+  groupOrdering:
+    - pattern: App
+      order: [GHActionsMonitorApp.swift, AppDelegate.swift]
+    - pattern: Models
+    - pattern: Services
+    - pattern: Views
+    - pattern: Resources
+
+targets:
+  GHActionsMonitor:
+    type: application
+    platform: macOS
+    deploymentTarget: "14.0"
+    sources:
+      - path: GHActionsMonitor
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.mvovchak.GHActionsMonitor
+      INFOPLIST_FILE: GHActionsMonitor/Info.plist
+      CODE_SIGN_ENTITLEMENTS: GHActionsMonitor/GHActionsMonitor.entitlements
+      SWIFT_VERSION: "5.9"
+      ENABLE_HARDENED_RUNTIME: YES
+      MACOSX_DEPLOYMENT_TARGET: "14.0"
+      ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
