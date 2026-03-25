@@ -1,93 +1,110 @@
 import SwiftUI
+import Sparkle
+
+enum PopoverTab { case actions, prs }
 
 struct PopoverView: View {
     @EnvironmentObject var pollingService: PollingService
-    @Environment(\.openSettings) private var openSettings
+    @State private var tab: PopoverTab = .actions
 
     var body: some View {
         VStack(spacing: 0) {
-            header
+            toolbar
             Divider()
-            content
-            if let error = pollingService.lastError, !pollingService.activeRuns.isEmpty {
-                errorFooter(error)
+            Group {
+                switch tab {
+                case .actions: ActionsView()
+                case .prs:     PRsView()
+                }
             }
+            .environmentObject(pollingService)
         }
-        .frame(width: 380, height: 500)
+        .frame(width: 400, height: 520)
     }
 
-    private var header: some View {
-        HStack {
-            Text("GitHub Actions")
-                .font(.headline)
+    // MARK: - Toolbar
+
+    private var toolbar: some View {
+        HStack(spacing: 4) {
+            TabButton(
+                label: "Actions",
+                icon: "hammer.circle.fill",
+                count: pollingService.activeRuns.count,
+                countColor: .orange,
+                isSelected: tab == .actions
+            ) { tab = .actions }
+
+            TabButton(
+                label: "Pull Requests",
+                icon: "arrow.triangle.pull",
+                count: pollingService.openPRs.count,
+                countColor: .blue,
+                isSelected: tab == .prs
+            ) { tab = .prs }
+
             Spacer()
-            Button(action: { openSettings() }) {
+
+            Button {
+                NSApp.sendAction(Selector(("checkForUpdates:")), to: nil, from: nil)
+            } label: {
+                Image(systemName: "arrow.clockwise.circle")
+                    .imageScale(.medium)
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+            .help("Check for Updates…")
+
+            SettingsLink {
                 Image(systemName: "gear")
                     .imageScale(.medium)
+                    .foregroundStyle(.secondary)
             }
             .buttonStyle(.plain)
             .help("Settings")
+            .padding(.trailing, 4)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
     }
+}
 
-    @ViewBuilder
-    private var content: some View {
-        if pollingService.activeRuns.isEmpty {
-            emptyState
-        } else {
-            ScrollView {
-                LazyVStack(spacing: 0) {
-                    ForEach(pollingService.activeRuns) { run in
-                        RunRowView(run: run)
-                        Divider().padding(.leading, 44)
-                    }
+// MARK: - Tab Button
+
+struct TabButton: View {
+    let label: String
+    let icon: String
+    let count: Int
+    let countColor: Color
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 5) {
+                Image(systemName: icon)
+                    .imageScale(.small)
+                Text(label)
+                    .font(.subheadline)
+                if count > 0 {
+                    Text("\(count)")
+                        .font(.caption2.weight(.bold))
+                        .foregroundStyle(isSelected ? .white : .secondary)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 2)
+                        .background(
+                            isSelected ? countColor : Color.secondary.opacity(0.25),
+                            in: Capsule()
+                        )
                 }
             }
-        }
-    }
-
-    private var emptyState: some View {
-        VStack(spacing: 12) {
-            Spacer()
-            if let error = pollingService.lastError {
-                Image(systemName: "exclamationmark.triangle")
-                    .font(.title2)
-                    .foregroundStyle(.orange)
-                Text(error)
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 32)
-                Button("Open Settings") { openSettings() }
-                    .padding(.top, 4)
-            } else {
-                Image(systemName: "checkmark.circle")
-                    .font(.title2)
-                    .foregroundStyle(.green)
-                Text("No running workflows")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-            }
-            Spacer()
-        }
-    }
-
-    private func errorFooter(_ error: String) -> some View {
-        VStack(spacing: 0) {
-            Divider()
-            HStack(spacing: 6) {
-                Image(systemName: "exclamationmark.triangle")
-                    .foregroundStyle(.orange)
-                    .imageScale(.small)
-                Text(error)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-            }
-            .padding(.horizontal, 12)
+            .foregroundStyle(isSelected ? countColor : .secondary)
+            .padding(.horizontal, 10)
             .padding(.vertical, 6)
+            .background(
+                isSelected ? countColor.opacity(0.1) : Color.clear,
+                in: RoundedRectangle(cornerRadius: 7)
+            )
         }
+        .buttonStyle(.plain)
     }
 }

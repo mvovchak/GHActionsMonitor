@@ -25,11 +25,29 @@ struct MenuBarLabel: View {
 
     var body: some View {
         HStack(spacing: 4) {
-            Image(systemName: "hammer.circle")
-            if pollingService.activeRuns.count > 0 {
-                Text("\(pollingService.activeRuns.count)")
+            Image(systemName: iconName)
+                .foregroundStyle(iconColor)
+            if badgeCount > 0 {
+                Text("\(badgeCount)")
                     .font(.caption.bold())
+                    .foregroundStyle(iconColor)
             }
         }
+    }
+
+    private var iconName: String {
+        if !pollingService.recentFailures.isEmpty { return "exclamationmark.circle.fill" }
+        return "hammer.circle"
+    }
+
+    private var iconColor: Color {
+        if !pollingService.recentFailures.isEmpty { return .red }
+        if !pollingService.activeRuns.isEmpty { return .orange }
+        return .primary
+    }
+
+    private var badgeCount: Int {
+        if !pollingService.recentFailures.isEmpty { return pollingService.recentFailures.count }
+        return pollingService.activeRuns.count
     }
 }

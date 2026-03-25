@@ -1,11 +1,12 @@
 import Foundation
 import Combine
+import ServiceManagement
 
 class AppSettings: ObservableObject {
     static let shared = AppSettings()
 
     @Published var personalAccessToken: String {
-        didSet { UserDefaults.standard.set(personalAccessToken, forKey: "pat") }
+        didSet { KeychainService.save(personalAccessToken) }
     }
 
     @Published var repositories: [Repository] {
@@ -16,11 +17,39 @@ class AppSettings: ObservableObject {
         }
     }
 
+    @Published var hideDraftPRs: Bool {
+        didSet { UserDefaults.standard.set(hideDraftPRs, forKey: "hideDrafts") }
+    }
+
+    @Published var pollIntervalSeconds: Int {
+        didSet { UserDefaults.standard.set(pollIntervalSeconds, forKey: "pollInterval") }
+    }
+
+    var launchAtLogin: Bool {
+        get { SMAppService.mainApp.status == .enabled }
+        set {
+            objectWillChange.send()
+            do {
+                if newValue { try SMAppService.mainApp.register() }
+                else { try SMAppService.mainApp.unregister() }
+            } catch {
+                print("LaunchAtLogin error: \(error)")
+            }
+        }
+    }
+
     private init() {
-        let saved = UserDefaults.standard.string(forKey: "pat") ?? ""
+        // Migrate PAT from UserDefaults to Keychain (one-time, for existing users)
+        if KeychainService.load() == nil,
+           let legacy = UserDefaults.standard.string(forKey: "pat"), !legacy.isEmpty {
+            KeychainService.save(legacy)
+            UserDefaults.standard.removeObject(forKey: "pat")
+        }
+
+        let saved = KeychainService.load() ?? ""
         if saved.isEmpty, let ghToken = Self.loadGHCliToken() {
             self.personalAccessToken = ghToken
-            UserDefaults.standard.set(ghToken, forKey: "pat")
+            KeychainService.save(ghToken)
         } else {
             self.personalAccessToken = saved
         }
@@ -31,6 +60,10 @@ class AppSettings: ObservableObject {
         } else {
             self.repositories = []
         }
+
+        self.hideDraftPRs = UserDefaults.standard.bool(forKey: "hideDrafts")
+        let savedInterval = UserDefaults.standard.integer(forKey: "pollInterval")
+        self.pollIntervalSeconds = savedInterval > 0 ? savedInterval : 60
     }
 
     private static func loadGHCliToken() -> String? {

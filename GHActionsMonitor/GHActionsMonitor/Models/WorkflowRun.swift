@@ -3,7 +3,7 @@ import Foundation
 struct WorkflowRun: Codable, Identifiable, Sendable {
     let id: Int
     let name: String
-    let headBranch: String
+    let headBranch: String?
     let status: String
     let conclusion: String?
     let htmlUrl: String

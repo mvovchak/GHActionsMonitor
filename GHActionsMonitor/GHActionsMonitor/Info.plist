@@ -15,16 +15,22 @@
     <key>CFBundlePackageType</key>
     <string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.0</string>
+    <string>$(MARKETING_VERSION)</string>
     <key>CFBundleVersion</key>
-    <string>1</string>
+    <string>$(CURRENT_PROJECT_VERSION)</string>
     <key>LSMinimumSystemVersion</key>
     <string>14.0</string>
-    <!-- LSUIElement intentionally omitted: breaks MenuBarExtra on macOS 26 Tahoe.
-         Dock icon is hidden at runtime via NSApp.setActivationPolicy(.accessory) instead. -->
+    <!-- LSUIElement intentionally omitted: it breaks MenuBarExtra on macOS 26 Tahoe. -->
     <key>NSHumanReadableCopyright</key>
-    <string>Copyright © 2026. All rights reserved.</string>
+    <string>Copyright © 2026. MIT License.</string>
     <key>NSUserNotificationAlertStyle</key>
     <string>alert</string>
+    <!-- Sparkle auto-update -->
+    <key>SUFeedURL</key>
+    <string>https://raw.githubusercontent.com/mvovchak/GHActionsMonitor/main/appcast.xml</string>
+    <key>SUPublicEDKey</key>
+    <string>Nn5q5G3clKg5PMrsbH1XQc5HB5MQj1pIUMiZecmPXOc=</string>
+    <key>SUEnableAutomaticChecks</key>
+    <true/>
 </dict>
 </plist>

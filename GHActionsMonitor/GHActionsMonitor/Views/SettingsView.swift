@@ -2,16 +2,19 @@ import SwiftUI
 
 struct SettingsView: View {
     @EnvironmentObject var settings: AppSettings
-    @State private var newRepoInput = ""
-    @State private var showInvalidRepoAlert = false
-    @State private var duplicateRepo = ""
+
+    private let pollOptions: [(label: String, seconds: Int)] = [
+        ("30 seconds", 30),
+        ("1 minute",   60),
+        ("5 minutes",  300)
+    ]
 
     var body: some View {
         Form {
             Section {
                 SecureField("ghp_xxxxxxxxxxxxxxxxxxxx", text: $settings.personalAccessToken)
                     .textFieldStyle(.roundedBorder)
-                Text("Requires **repo** and **workflow** scopes. Stored in UserDefaults (not Keychain).")
+                Text("Requires **repo** and **workflow** scopes.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } header: {
@@ -19,12 +22,7 @@ struct SettingsView: View {
             }
 
             Section {
-                if settings.repositories.isEmpty {
-                    Text("No repositories added yet.")
-                        .foregroundStyle(.tertiary)
-                        .font(.callout)
-                        .padding(.vertical, 4)
-                } else {
+                if !settings.repositories.isEmpty {
                     ForEach(settings.repositories) { repo in
                         RepoRowView(repo: repo) {
                             settings.repositories.removeAll { $0.id == repo.id }
@@ -32,44 +30,38 @@ struct SettingsView: View {
                     }
                 }
 
-                HStack {
-                    TextField("owner/repo", text: $newRepoInput)
-                        .textFieldStyle(.roundedBorder)
-                        .onSubmit { addRepo() }
-                    Button("Add") { addRepo() }
-                        .disabled(newRepoInput.trimmingCharacters(in: .whitespaces).isEmpty)
-                }
-                .padding(.top, 2)
+                RepoPickerView()
+                    .environmentObject(settings)
+                    .padding(.vertical, 4)
 
             } header: {
                 Text("Watched Repositories")
             } footer: {
-                Text("Polling every 60 seconds  ·  \(settings.repositories.count) repo(s) watched")
+                Text("\(settings.repositories.count) repo(s) watched")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+            }
+
+            Section {
+                Toggle("Launch at Login", isOn: Binding(
+                    get: { settings.launchAtLogin },
+                    set: { settings.launchAtLogin = $0 }
+                ))
+                Toggle("Hide Draft Pull Requests", isOn: $settings.hideDraftPRs)
+
+                Picker("Poll Interval", selection: $settings.pollIntervalSeconds) {
+                    ForEach(pollOptions, id: \.seconds) { option in
+                        Text(option.label).tag(option.seconds)
+                    }
+                }
+                .pickerStyle(.menu)
+                .frame(maxWidth: 260)
+            } header: {
+                Text("Preferences")
             }
         }
         .formStyle(.grouped)
         .padding()
-        .frame(width: 480, height: 420)
-        .alert("Invalid Repository", isPresented: $showInvalidRepoAlert) {
-            Button("OK") {}
-        } message: {
-            Text("Use the format \"owner/repo\", e.g. \"apple/swift\".")
-        }
-    }
-
-    private func addRepo() {
-        let repo = Repository(fullName: newRepoInput)
-        guard repo.isValid else {
-            showInvalidRepoAlert = true
-            return
-        }
-        guard !settings.repositories.contains(where: { $0.fullName == repo.fullName }) else {
-            newRepoInput = ""
-            return
-        }
-        settings.repositories.append(repo)
-        newRepoInput = ""
+        .frame(width: 480, height: 620)
     }
 }

@@ -2,6 +2,7 @@ import SwiftUI
 
 struct RunRowView: View {
     let run: WorkflowRun
+    @EnvironmentObject var pollingService: PollingService
 
     var body: some View {
         HStack(spacing: 12) {
@@ -15,7 +16,7 @@ struct RunRowView: View {
                     .font(.callout)
                     .fontWeight(.medium)
                     .lineLimit(1)
-                Text("\(run.repository.fullName) · \(run.headBranch)")
+                Text([run.repository.fullName, run.headBranch].compactMap { $0 }.joined(separator: " · "))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
@@ -38,6 +39,23 @@ struct RunRowView: View {
         .onTapGesture {
             if let url = URL(string: run.htmlUrl) {
                 NSWorkspace.shared.open(url)
+            }
+        }
+        .contextMenu {
+            Button("Open in Browser") {
+                if let url = URL(string: run.htmlUrl) {
+                    NSWorkspace.shared.open(url)
+                }
+            }
+            Button("Copy Link") {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(run.htmlUrl, forType: .string)
+            }
+            if run.conclusion == "failure" {
+                Divider()
+                Button("Re-run Workflow") {
+                    Task { await pollingService.rerunWorkflow(run: run) }
+                }
             }
         }
     }

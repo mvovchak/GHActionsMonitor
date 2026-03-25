@@ -1,0 +1,126 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-and-release:
+    runs-on: macos-15
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode.app
+
+      - name: Install xcodegen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Resolve packages
+        run: xcodebuild -resolvePackageDependencies -scheme GHActionsMonitor
+
+      - name: Get version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Build archive
+        run: |
+          xcodebuild archive \
+            -scheme GHActionsMonitor \
+            -configuration Release \
+            -archivePath build/GHActionsMonitor.xcarchive \
+            MARKETING_VERSION="${{ steps.version.outputs.VERSION }}" \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
+
+      # ── Signed + notarized path (requires Apple Developer secrets) ────────────
+      - name: Import Developer ID certificate
+        if: ${{ env.APPLE_CERTIFICATE != '' }}
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          KEYCHAIN_PATH="$RUNNER_TEMP/build.keychain"
+          KEYCHAIN_PASSWORD="$(openssl rand -base64 16)"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          echo "$APPLE_CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security import "$RUNNER_TEMP/cert.p12" \
+            -k "$KEYCHAIN_PATH" \
+            -P "$APPLE_CERTIFICATE_PASSWORD" \
+            -T /usr/bin/codesign
+          security list-keychains -d user -s "$KEYCHAIN_PATH" login.keychain
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+      - name: Export archive (signed)
+        if: ${{ env.APPLE_CERTIFICATE != '' }}
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          sed "s/TEAM_ID_PLACEHOLDER/$APPLE_TEAM_ID/" ExportOptions.plist > ExportOptions-ci.plist
+          xcodebuild -exportArchive \
+            -archivePath build/GHActionsMonitor.xcarchive \
+            -exportPath build/export \
+            -exportOptionsPlist ExportOptions-ci.plist
+
+      - name: Export archive (unsigned fallback)
+        if: ${{ env.APPLE_CERTIFICATE == '' }}
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+        run: |
+          cp -R build/GHActionsMonitor.xcarchive/Products/Applications/GHActionsMonitor.app \
+               build/export/GHActionsMonitor.app 2>/dev/null || \
+          cp -R "$(find build/GHActionsMonitor.xcarchive -name '*.app' | head -1)" \
+               build/export/GHActionsMonitor.app
+
+      - name: Create DMG
+        run: |
+          mkdir -p dist
+          cp -R build/export/GHActionsMonitor.app dist/
+          hdiutil create \
+            -volname "GHActionsMonitor" \
+            -srcfolder dist \
+            -ov -format UDZO \
+            "GHActionsMonitor-${{ steps.version.outputs.VERSION }}.dmg"
+
+      - name: Notarize DMG
+        if: ${{ env.APPLE_ID != '' }}
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          xcrun notarytool submit \
+            "GHActionsMonitor-${{ steps.version.outputs.VERSION }}.dmg" \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_APP_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait
+          xcrun stapler staple "GHActionsMonitor-${{ steps.version.outputs.VERSION }}.dmg"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "v${{ steps.version.outputs.VERSION }}"
+          draft: false
+          prerelease: false
+          files: "GHActionsMonitor-${{ steps.version.outputs.VERSION }}.dmg"
+          body: |
+            ## Installation
+            1. Download and open `GHActionsMonitor-${{ steps.version.outputs.VERSION }}.dmg`
+            2. Drag **GHActionsMonitor** to your Applications folder
+            3. Right-click → **Open** on first launch (Gatekeeper)
+
+            ## Requirements
+            macOS 14 (Sonoma) or later

@@ -1,0 +1,16 @@
+# Build output
+build/
+DerivedData/
+*.xcarchive
+*.dmg
+
+# Xcode user state
+*.xcuserstate
+xcuserdata/
+*.xcworkspace/xcuserdata/
+
+# macOS
+.DS_Store
+
+# CI temp
+ExportOptions-ci.plist
