@@ -54,7 +54,13 @@ struct PopoverView: View {
             .buttonStyle(.plain)
             .help("Check for Updates…")
 
-            SettingsLink {
+            Button {
+                NSApp.activate(ignoringOtherApps: true)
+                NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+                DispatchQueue.main.async {
+                    NSApp.windows.first { $0.title == "Settings" }?.makeKeyAndOrderFront(nil)
+                }
+            } label: {
                 Image(systemName: "gear")
                     .imageScale(.medium)
                     .foregroundStyle(.secondary)

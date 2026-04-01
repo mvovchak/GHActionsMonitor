@@ -40,8 +40,7 @@ actor GitHubAPIClient {
     func fetchRecentFailures(for repo: Repository, token: String) async throws -> [WorkflowRun] {
         var c = URLComponents(string: "https://api.github.com/repos/\(repo.fullName)/actions/runs")!
         c.queryItems = [
-            URLQueryItem(name: "status",     value: "completed"),
-            URLQueryItem(name: "conclusion", value: "failure"),
+            URLQueryItem(name: "status", value: "failure"),
         ]
         return try await fetchAll(WorkflowRunsResponse.self, baseURL: c.url!, token: token, repo: repo.fullName)
             .flatMap(\.workflowRuns)
