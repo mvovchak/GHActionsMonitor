@@ -67,15 +67,36 @@ struct PRsView: View {
     private var emptyState: some View {
         VStack(spacing: 10) {
             Spacer()
-            Image(systemName: "checkmark.circle")
-                .font(.title2)
-                .foregroundStyle(.green)
-            Text("No open pull requests")
-                .font(.callout)
-                .foregroundStyle(.secondary)
+            if settings.repositories.isEmpty {
+                Image(systemName: "tray")
+                    .font(.title2)
+                    .foregroundStyle(.secondary)
+                Text("No repositories watched")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                Button("Add in Settings") { openSettings() }
+                    .font(.callout)
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.tint)
+            } else {
+                Image(systemName: "checkmark.circle")
+                    .font(.title2)
+                    .foregroundStyle(.green)
+                Text("No open pull requests")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
             Spacer()
         }
         .frame(maxWidth: .infinity)
+    }
+
+    private func openSettings() {
+        NSApp.activate(ignoringOtherApps: true)
+        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+        DispatchQueue.main.async {
+            NSApp.windows.first { $0.title == "Settings" }?.makeKeyAndOrderFront(nil)
+        }
     }
 }
 

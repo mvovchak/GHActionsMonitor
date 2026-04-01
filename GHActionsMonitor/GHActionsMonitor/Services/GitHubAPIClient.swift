@@ -21,6 +21,8 @@ enum GitHubError: LocalizedError {
 }
 
 actor GitHubAPIClient {
+    private(set) var rateLimitRemaining: Int? = nil
+
     private let session = URLSession.shared
     private let decoder: JSONDecoder = {
         let d = JSONDecoder()
@@ -40,10 +42,12 @@ actor GitHubAPIClient {
     func fetchRecentFailures(for repo: Repository, token: String) async throws -> [WorkflowRun] {
         var c = URLComponents(string: "https://api.github.com/repos/\(repo.fullName)/actions/runs")!
         c.queryItems = [
-            URLQueryItem(name: "status", value: "failure"),
+            URLQueryItem(name: "status",   value: "failure"),
+            URLQueryItem(name: "per_page", value: "30"),
+            URLQueryItem(name: "page",     value: "1"),
         ]
-        return try await fetchAll(WorkflowRunsResponse.self, baseURL: c.url!, token: token, repo: repo.fullName)
-            .flatMap(\.workflowRuns)
+        let response = try await fetchWithRetry(WorkflowRunsResponse.self, url: c.url!, token: token, repo: repo.fullName)
+        return response.workflowRuns
     }
 
     // MARK: - Actions (write)
@@ -176,6 +180,10 @@ actor GitHubAPIClient {
         }
 
         guard let http = response as? HTTPURLResponse else { throw GitHubError.unknownError(-1) }
+
+        if let remaining = http.value(forHTTPHeaderField: "X-RateLimit-Remaining").flatMap(Int.init) {
+            rateLimitRemaining = remaining
+        }
 
         switch http.statusCode {
         case 200:

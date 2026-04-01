@@ -8,6 +8,7 @@ class PollingService: ObservableObject {
     @Published var openPRs: [PullRequest] = []
     @Published var prReviewDecisions: [Int: ReviewDecision] = [:]
     @Published var currentUserLogin: String = ""
+    @Published var rateLimitRemaining: Int? = nil
     @Published var lastError: String?
 
     private var pollingTask: Task<Void, Never>?
@@ -16,6 +17,7 @@ class PollingService: ObservableObject {
     private var seenReviewRequestedPRIds: Set<Int> = []
     private var seenPRReviewDecisions: [Int: ReviewDecision] = [:]
     private var hasCompletedFirstPoll = false
+    private var lastKnownToken: String = ""
     private weak var notificationService: NotificationService?
     private var settings: AppSettings?
     private var settingsCancellable: AnyCancellable?
@@ -29,11 +31,15 @@ class PollingService: ObservableObject {
             settings.$repositories
         )
         .debounce(for: .seconds(0.5), scheduler: RunLoop.main)
-        .sink { [weak self] _, _ in
-            self?.restartPolling()
+        .sink { [weak self] newToken, _ in
+            guard let self else { return }
+            let tokenChanged = newToken != self.lastKnownToken
+            self.lastKnownToken = newToken
+            self.restartPolling(clearSeenState: tokenChanged)
         }
 
-        restartPolling()
+        lastKnownToken = settings.personalAccessToken
+        restartPolling(clearSeenState: true)
     }
 
     func stop() {
@@ -47,12 +53,15 @@ class PollingService: ObservableObject {
         try? await apiClient.rerunWorkflow(runId: run.id, repoFullName: run.repository.fullName, token: token)
     }
 
-    private func restartPolling() {
+    private func restartPolling(clearSeenState: Bool = false) {
         pollingTask?.cancel()
         hasCompletedFirstPoll = false
-        seenFailureIds = []
-        seenReviewRequestedPRIds = []
-        seenPRReviewDecisions = [:]
+        if clearSeenState {
+            seenFailureIds = []
+            seenReviewRequestedPRIds = []
+            seenPRReviewDecisions = [:]
+            currentUserLogin = ""
+        }
         pollingTask = Task {
             while !Task.isCancelled {
                 let start = Date()
@@ -135,6 +144,7 @@ class PollingService: ObservableObject {
         recentFailures    = allFailures.sorted { $0.updatedAt > $1.updatedAt }
         openPRs           = allPRs.sorted { $0.updatedAt > $1.updatedAt }
         prReviewDecisions = decisions
+        rateLimitRemaining = await client.rateLimitRemaining
         lastError         = errors.isEmpty ? nil : errors.joined(separator: "\n")
 
         processFailures(allFailures)

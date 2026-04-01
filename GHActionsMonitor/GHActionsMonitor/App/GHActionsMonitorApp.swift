@@ -17,6 +17,18 @@ struct GHActionsMonitorApp: App {
             SettingsView()
                 .environmentObject(AppSettings.shared)
         }
+        .commands {
+            CommandGroup(after: .appSettings) {
+                Button("Settings…") {
+                    NSApp.activate(ignoringOtherApps: true)
+                    NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+                    DispatchQueue.main.async {
+                        NSApp.windows.first { $0.title == "Settings" }?.makeKeyAndOrderFront(nil)
+                    }
+                }
+                .keyboardShortcut(",", modifiers: .command)
+            }
+        }
     }
 }
 

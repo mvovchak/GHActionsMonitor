@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ActionsView: View {
     @EnvironmentObject var pollingService: PollingService
+    @ObservedObject private var settings = AppSettings.shared
 
     var body: some View {
         if pollingService.activeRuns.isEmpty && pollingService.recentFailures.isEmpty {
@@ -38,7 +39,18 @@ struct ActionsView: View {
     private var emptyState: some View {
         VStack(spacing: 10) {
             Spacer()
-            if let error = pollingService.lastError {
+            if settings.repositories.isEmpty {
+                Image(systemName: "tray")
+                    .font(.title2)
+                    .foregroundStyle(.secondary)
+                Text("No repositories watched")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                Button("Add in Settings") { openSettings() }
+                    .font(.callout)
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.tint)
+            } else if let error = pollingService.lastError {
                 Image(systemName: "exclamationmark.triangle")
                     .font(.title2)
                     .foregroundStyle(.orange)
@@ -58,6 +70,14 @@ struct ActionsView: View {
             Spacer()
         }
         .frame(maxWidth: .infinity)
+    }
+
+    private func openSettings() {
+        NSApp.activate(ignoringOtherApps: true)
+        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+        DispatchQueue.main.async {
+            NSApp.windows.first { $0.title == "Settings" }?.makeKeyAndOrderFront(nil)
+        }
     }
 
     private func errorFooter(_ error: String) -> some View {
