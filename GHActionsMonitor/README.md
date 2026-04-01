@@ -4,30 +4,7 @@ A native macOS menu bar app that monitors GitHub Actions CI runs and pull reques
 
 **Requires macOS 14 (Sonoma) or later.**
 
----
-
-## Setup checklist (before publishing)
-
-These steps are one-time and must be done before the repo is open and usable by others:
-
-- [ ] **Push the repo** — `git init`, `git remote add origin git@github.com:mvovchak/GHActionsMonitor.git`, push
-- [ ] **Add `.gitignore`** — exclude `build/`, `*.xcarchive`, `*.dmg`, `DerivedData/` (see below)
-- [ ] **Add Apple Developer secrets** to the GitHub repo for signed + notarized CI releases (see [Releasing](#releasing-ci))
-- [ ] **Ship v1.0.0** — push `git tag v1.0.0 && git push origin v1.0.0`, wait for CI, download the DMG, sign it with `sign_update`, update `appcast.xml`, push
-
-Until the Apple Developer secrets are added, CI will produce an **unsigned DMG** — users will need to right-click → Open on first launch. Notarized releases remove that friction.
-
-### Recommended `.gitignore`
-
-```
-build/
-*.xcarchive
-*.dmg
-DerivedData/
-*.xcuserstate
-xcuserdata/
-.DS_Store
-```
+![GHActionsMonitor screenshot](docs/screenshot.png)
 
 ---
 
@@ -56,7 +33,7 @@ xcuserdata/
 2. Open the DMG and drag **GHActionsMonitor** to `/Applications`
 3. On first launch: right-click → **Open** to bypass Gatekeeper
 
-> Releases are notarized when Apple Developer secrets are configured in CI (see [Releasing](#releasing-ci)). Until then, Gatekeeper bypass is manual.
+> Releases are notarized when Apple Developer secrets are configured in CI. Until then, Gatekeeper bypass is manual.
 
 ### Build from source
 
@@ -81,7 +58,7 @@ xattr -dr com.apple.quarantine /Applications/GHActionsMonitor.app
 
 ## App setup
 
-1. Open Settings (gear icon in the popover)
+1. Open Settings (gear icon in the popover, or `cmd+,`)
 2. Paste a GitHub **Personal Access Token** with scopes:
    - `repo` — read pull requests and workflow runs
    - `workflow` — re-run workflows
@@ -91,7 +68,7 @@ If you have the [GitHub CLI](https://cli.github.com/) installed and authenticate
 
 ---
 
-## Releasing (CI)
+## Releasing
 
 Push a version tag to trigger the GitHub Actions release workflow:
 
@@ -114,7 +91,7 @@ A **Developer ID Application** certificate requires enrollment in the [Apple Dev
 
 ---
 
-## Publishing an update with auto-update (Sparkle)
+## Publishing an update (Sparkle auto-update)
 
 After CI creates a new release and you have the signed DMG:
 
